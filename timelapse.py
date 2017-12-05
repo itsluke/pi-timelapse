@@ -10,7 +10,7 @@ import yaml
 
 config = yaml.safe_load(open(os.path.join(sys.path[0], "config.yml")))
 
-#defaults
+# defaults
 series_name = 'series'
 output_dir = sys.path[0]
 date_string = '%Y-%m-%d'
@@ -20,7 +20,7 @@ image_number = 0
 total_images = 0
 mode = {}
 
-#custom
+# custom
 if 'series_name' in config:
     series_name = config['series_name']
 if 'output_dir' in config:
@@ -31,6 +31,7 @@ if 'date_string' in config:
     date_string = config['date_string']
 
 FMT = '{} {}'.format(date_string, time_string)
+
 
 def create_timestamped_dir(dir):
     try:
@@ -97,14 +98,14 @@ def config_mode():
         # set todays dir
         mode['dir'] = os.path.join(
             output_dir,
-            valid_filename(series_name), 
+            valid_filename(series_name),
             valid_filename(now_date_str)
         )
 
-        # TODO: need to account for start/end times 
+        # TODO: need to account for start/end times
         # that bridge midnight
         if (now > mode['start_time']):
-            # set current image number if script restarts 
+            # set current image number if script restarts
             # or is in the middle of daily run
             image_number = ((now - mode['start_time']) / config['interval']).seconds
     else:
@@ -122,20 +123,22 @@ def config_mode():
 
 
 def pretty_print():
-    print '------------','timelapse.py','-------------'
+    print '------------', 'timelapse.py', '-------------'
     if mode['type'] == 'Once':
         print 'Mode: {} | Interval: {}s | Image Count: {}'.format(
-            mode['type'], config['interval'], total_images )
+            mode['type'], config['interval'], total_images)
 
-        print 'Output Dir: {}/'.format( os.path.basename(mode['dir']) )
+        print 'Output Dir: {}/'.format(os.path.basename(mode['dir']))
     else:
         print 'Mode: {} | Interval: {}s | Daily Count: {}'.format(
-                mode['type'], config['interval'], total_images )
-
+                mode['type'], config['interval'], total_images)
         print 'timelapse from: {} to: {}'.format(
-            mode['start_time'].strftime(time_string), mode['end_time'].strftime(time_string))
+            mode['start_time'].strftime(time_string),
+            mode['end_time'].strftime(time_string)
+        )
         print 'Output Dir: {}/{}'.format(
-            series_name, os.path.basename(mode['dir']) )
+            series_name, os.path.basename(mode['dir'])
+        )
 
     print '------------------------------------------'
 
@@ -169,8 +172,8 @@ def capture_image():
         # Capture a picture.
         camera.capture(mode['dir'] + '/image{0:05d}.jpg'.format(image_number))
         camera.close()
-        
-        print 'Taking image {}/{}'.format(image_number + 1,total_images)
+
+        print 'Taking image {}/{}'.format(image_number + 1, total_images)
 
         if (image_number < (total_images - 1)):
             image_number += 1
@@ -181,19 +184,45 @@ def capture_image():
         print '\nTime-lapse capture cancelled.\n'
 
 
+def create_gif():
+    # ImageMagick Setup, for more options see
+    # https://www.imagemagick.org/script/command-line-options.php
+
+    envs = ['MAGICK_THREAD_LIMIT=1', 'MAGICK_THROTTLE=50']
+    flags = ['-delay 10', '-loop 0', '-resize 50' ]
+    output = mode['dir'] + '-timelapse.gif'
+
+    # build command line string
+    cmd = [envs, ['convert'], flags, ['/image*.jpg', output ]]
+    cmd = ' '.join(str(r) for v in cmd for r in v)
+
+    try:
+        print 'GIF: {}'.format(output)
+        print 'GIF: starting gif convertion'
+        start_t = datetime.now()
+        os.system(' '.join(str(r) for v in convert_cmd for r in v) )
+    except KeyboardInterrupt, SystemExit:
+        print 'GIF: convertion stopped.'
+    else:
+        print 'GIF: convertion failed.'
+    finally:
+        elapsed_s = abs((datetime.now() - start_t).seconds)
+        print 'GIF: {}'.format(output)
+        print 'GIF: completed in {} seconds'.format(elapsed_s)
+
+
 def finish_capture():
     print 'Finishing capture!\n'
     # Create an animated gif (Requires ImageMagick).
     if config['create_gif']:
-        print 'Creating animated gif.'
-        os.system('convert -delay 10 -loop 0 ' + mode['dir'] + '/image*.jpg ' + mode['dir'] + '-timelapse.gif')  # noqa
+        create_gif()
 
     # Create a video (Requires avconv - which is basically ffmpeg).
     if config['create_video']:
         print 'Creating video.'
         os.system('avconv -framerate 20 -i ' + mode['dir'] + '/image%05d.jpg -vf format=yuv420p ' + mode['dir'] + '/timelapse.mp4')  # noqa
 
-    # exit or schedule script 
+    # exit or schedule script
     if mode['type'] == 'Once':
         print 'Time-lapse capture complete!'
         sys.exit()
@@ -222,7 +251,7 @@ def wait_or_capture_image():
         # schedule start_capture to run at start_time
         delay = (mode['start_time'] - now).total_seconds()
         if delay > 1:
-            print '\nWaiting till:',mode['start_time'].strftime(FMT),'\n'
+            print '\nWaiting till:', mode['start_time'].strftime(FMT), '\n'
             thread = threading.Timer(delay, capture_image).start()
         else:
             sleep(delay)
