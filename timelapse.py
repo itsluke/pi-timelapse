@@ -1,4 +1,4 @@
-# from picamera import PiCamera
+from picamera import PiCamera
 import errno
 import os
 import re
@@ -78,10 +78,10 @@ def config_mode():
     global image_number
     global total_images
     global mode
+    now = datetime.now()
 
     # check if start and end time are present
     if all(k in config for k in ("start_time", "end_time")):
-        now = datetime.now()
         now_date_str = now.strftime(date_string)
 
         # setup daily attributes
@@ -111,7 +111,8 @@ def config_mode():
         total_images = config['total_images']
         mode['type'] = 'Once'
         dir_slug = valid_filename('{}-{}_{}'.format(
-                series_name, date_string, time_string))
+                series_name, now.strftime(date_string), now.strftime(time_string)
+            ))
         mode['dir'] = os.path.join(
             output_dir,
             dir_slug
@@ -161,13 +162,13 @@ def capture_image():
         if (image_number < (total_images - 1)):
             thread = threading.Timer(config['interval'], capture_image).start()
 
-        # # Start up the camera.
-        # camera = PiCamera()
-        # set_camera_options(camera)
+        # Start up the camera.
+        camera = PiCamera()
+        set_camera_options(camera)
 
-        # # Capture a picture.
-        # camera.capture(mode['dir'] + '/image{0:05d}.jpg'.format(image_number))
-        # camera.close()
+        # Capture a picture.
+        camera.capture(mode['dir'] + '/image{0:05d}.jpg'.format(image_number))
+        camera.close()
         
         print 'Taking image {}/{}'.format(image_number + 1,total_images)
 
