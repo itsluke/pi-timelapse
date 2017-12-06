@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from time import sleep
 import yaml
 
-config = yaml.safe_load(open(os.path.join(sys.path[0], "config.yml")))
+config = yaml.safe_load(open(os.path.join(sys.path[0], 'config.yml')))
 
 # defaults
 series_name = 'series'
@@ -34,8 +34,16 @@ if 'time_string' in config:
 if 'date_string' in config:
     date_string = config['date_string']
 
-FMT = '{} {}'.format(date_string, time_string)
 
+email = {}
+if 'email_address' in config:
+    email['email_address'] = config['email_address']
+if 'email_password' in config:
+    email['email_password'] = config['email_password']
+if 'email_to_address' in config:
+    email['email_to_address'] = config['email_to_address']
+
+FMT = '{} {}'.format(date_string, time_string)
 
 def create_timestamped_dir(dir):
     try:
@@ -86,11 +94,11 @@ def config_mode():
     now = datetime.now()
 
     # check if start and end time are present
-    if all(k in config for k in ("start_time", "end_time")):
+    if all(k in config for k in ('start_time', 'end_time')):
         now_date_str = now.strftime(date_string)
 
-        # setup daily attributes
-        mode['type'] = 'daily'
+        # setup Daily attributes
+        mode['type'] = 'Daily'
         mode['start_time'] = datetime.strptime('{} {}'.format(
             now_date_str, config['start_time']), FMT)
         mode['end_time'] = datetime.strptime('{} {}'.format(
@@ -110,11 +118,11 @@ def config_mode():
         # that bridge midnight
         if (now > mode['start_time']):
             # set current image number if script restarts
-            # or is in the middle of daily run
+            # or is in the middle of Daily run
             image_number = ((now - mode['start_time']) / config['interval']).seconds
     else:
-        total_images = config['total_images']
         mode['type'] = 'Once'
+        total_images = config['total_images']
         dir_slug = valid_filename('{}-{}_{}'.format(
                 series_name, now.strftime(date_string), now.strftime(time_string)
             ))
@@ -122,8 +130,6 @@ def config_mode():
             output_dir,
             dir_slug
         )
-
-    pretty_print()
 
 
 def pretty_print():
@@ -198,7 +204,7 @@ def make_gif():
     envs = ['MAGICK_THREAD_LIMIT=1', 'MAGICK_THROTTLE=50']
     flags = ['-delay 10', '-loop 0' ]
     output_dir = mode['dir']
-    g_suffix = '-timelapse.gif'
+    gif_name = 'timelapse.gif'
     
     if 'gif_flags' in config:
         flags.insert(len(flags),config['gif_flags'])
@@ -206,14 +212,14 @@ def make_gif():
     if 'gif_output_dir' in config:
         output_dir = config['gif_output_dir']
         
-    if 'gif_suffix' in config:
-        gif_suffix = config['gif_suffix']
+    if 'gif_name' in config:
+        gif_name = config['gif_name']
 
+    gif_path = os.path.join(mode['dir'], gif_name)
     g_input = mode['dir'] + '/image*.jpg'
-    gif_location = output_dir + g_suffix
 
     # build command line string
-    cmd = [envs, ['convert'], flags, [g_input, gif_location]]
+    cmd = [envs, ['convert'], flags, [g_input, gif_path]]
     cmd = ' '.join(str(r) for v in cmd for r in v)
 
     # run the system command
@@ -221,21 +227,28 @@ def make_gif():
 
 
 def make_video():
-    global mp4_location
-    mp4_location = mode['dir'] + '/timelapse.mp4'
+    mp4_name = 'timelapse.mp4'
+    if 'mp4_name' in config:
+        mp4_name = config['mp4_name']
 
-    os.system('avconv -framerate 20 -i ' + mode['dir'] + '/image%05d.jpg -vf format=yuv420p ' + mp4_location)
+    mp4_path = os.path.join(mode['dir'], mp4_name)
+
+    os.system('avconv -framerate 20 -i ' + mode['dir'] + '/image%05d.jpg -vf format=yuv420p ' + mp4_path)
 
 
 def export_timelapse(type):
     if type == 'gif':
         export_func = make_gif
         namespace = 'GIF:'
-        export_path = gif_location
+        export_name = 'timelapse.gif'
+        if 'gif_name' in config:
+            export_name = config['gif_name']
     elif type == 'mp4':
         export_func = make_video
         namespace = 'VIDEO:'
-        export_path = mp4_location
+        export_name = 'timelapse.mp4'
+        if 'mp4_name' in config:
+            export_name = config['mp4_name']
     try:
         start_t = datetime.now()
         show_progress(
@@ -243,13 +256,57 @@ def export_timelapse(type):
             msg='{} converting'.format(namespace), 
             sec=1
         )
+        export_path = os.path.join(mode['dir'], export_name)
         print '{} {}'.format(namespace, export_path)
     except KeyboardInterrupt, SystemExit:
         print '{} convertion stopped.'.format(namespace)
     finally:
         elapsed_s = abs((datetime.now() - start_t).seconds)
-        print '{}'.format(export_path)
         print '{} completed in {} seconds'.format(namespace, elapsed_s)
+
+    if config['export_email'] == True:
+        email_export(export_path)
+
+
+def email_export(file_path):
+    import smtplib
+    from email.MIMEMultipart import MIMEMultipart
+    from email.MIMEText import MIMEText
+    from email.MIMEBase import MIMEBase
+    from email import encoders
+
+    fromaddr = email['email_address']
+    toaddr = email['email_to_address']
+
+    msg = MIMEMultipart()
+
+    msg['From'] = fromaddr
+    msg['To'] = toaddr
+    now = datetime.now()
+
+    msg['Subject'] = 'Todays {} update | {}'.format(
+        series_name, now.strftime(date_string))
+    
+    body = 'Enjoy you {} update for the day.'.format(series_name)
+    msg.attach(MIMEText(body, 'plain'))
+     
+    filename = os.path.basename(os.path.normpath(file_path))
+    attachment = open(file_path, 'rb')
+
+    part = MIMEBase('application', 'octet-stream')
+    part.set_payload((attachment).read())
+    encoders.encode_base64(part)
+    part.add_header('Content-Disposition', 'attachment; filename= %s' % filename)
+     
+    msg.attach(part)
+
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(fromaddr, email['pass'])
+    text = msg.as_string()
+    server.sendmail(fromaddr, toaddr, text)
+    server.quit()
+
 
 def finish_capture():
     print 'Finishing capture!\n'
@@ -267,11 +324,12 @@ def finish_capture():
         print 'Time-lapse capture complete!'
         sys.exit()
 
-    elif mode['type'] == 'daily':
+    elif mode['type'] == 'Daily':
 
         now = datetime.now()
         # calculate time till tomorrows start
         eod = datetime(now.year, now.month, now.day) + timedelta(days=1, microseconds=-1)
+
         sod = eod + timedelta(microseconds=1)
         start_tomorrow = ((eod - now)+(mode['start_time'] - sod)).seconds
 
@@ -287,16 +345,15 @@ def wait_or_capture_image():
     now = datetime.now()
 
     # if before start time wait
-    if mode['type'] == 'daily' and now < mode['start_time']:
+    if mode['type'] == 'Daily' and now < mode['start_time']:
         # schedule start_capture to run at start_time
-        delay = (mode['start_time'] - now).total_seconds()
-        if delay > 1:
-            print '\nWaiting till:', mode['start_time'].strftime(FMT), '\n'
+        delay = abs((mode['start_time'] - now).seconds)
+        if delay > 0:
+            print 'Capture will start in {}s'.format(delay)
+            print 'at {}\n'.format(mode['start_time'].strftime(FMT))
             thread = threading.Timer(delay, capture_image).start()
-        else:
-            sleep(delay)
     # if after finish time wait
-    elif mode['type'] == 'daily' and now > mode['end_time']:
+    elif mode['type'] == 'Daily' and now > mode['end_time']:
         finish_capture()
     # capture images
     else:
@@ -307,6 +364,8 @@ def wait_or_capture_image():
 def start_capture():
     # config mode
     config_mode()
+    # print starting message
+    pretty_print()
     # create the directory
     create_timestamped_dir(mode['dir'])
     # wait or capture images

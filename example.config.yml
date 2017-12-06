@@ -24,6 +24,9 @@ create_gif: False
 # Whether to create an video after capturing the time-lapse images.
 create_video: False
 
+# Whether to email time-lapse exports after creation.
+email_export: False
+
 #####################
 # Location settings #
 #####################
@@ -33,6 +36,42 @@ create_video: False
 
 # Custom Output Dir
 # output_dir: '/home/pi/pi-timelapse/'
+
+#####################
+# GIF settings      #
+#####################
+
+# Custom Gif Suffix
+# gif_name: 'timelapse.gif'
+
+# Custom Output Dir
+# gif_output_dir: '/home/pi/pi-timelapse/'
+
+# Custom Gif Flags
+# gif_flags: '-crop 780x520+260+50\!'
+
+#####################
+# MP4 settings      #
+#####################
+
+# Custom mp4 Suffix
+# mp4_name: 'timelapse.mp4'
+
+# Custom Output Dir
+# mp4_output_dir: '/home/pi/pi-timelapse/'
+
+#####################
+# Email settings    #
+#####################
+
+# Email address to send from
+# email_address: 'sending@your.email'
+
+# Password from sending address
+# email_password: 'sending_email_password'
+
+# Address to email
+# email_to_address: 'receiving@a.email'
 
 #####################
 # Advanced settings #
@@ -51,3 +90,5 @@ white_balance: { }
 
 # Rotate the images taken by the camera. Possible value are 0, 90, 180 or 270
 rotation: 0
+
+
