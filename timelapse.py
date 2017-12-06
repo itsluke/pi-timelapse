@@ -189,18 +189,19 @@ def create_gif():
     # https://www.imagemagick.org/script/command-line-options.php
 
     envs = ['MAGICK_THREAD_LIMIT=1', 'MAGICK_THROTTLE=50']
-    flags = ['-delay 10', '-loop 0', '-resize 50' ]
-    output = mode['dir'] + '-timelapse.gif'
+    flags = ['-delay 10', '-loop 0', '-resize 50']
+    g_input = mode['dir'] + '/image*.jpg'
+    g_output = mode['dir'] + '-timelapse.gif'
 
     # build command line string
-    cmd = [envs, ['convert'], flags, ['/image*.jpg', output ]]
+    cmd = [envs, ['convert'], flags, [g_input, output]]
     cmd = ' '.join(str(r) for v in cmd for r in v)
 
     try:
         print 'GIF: {}'.format(output)
         print 'GIF: starting gif convertion'
         start_t = datetime.now()
-        os.system(' '.join(str(r) for v in convert_cmd for r in v) )
+        os.system(cmd)
     except KeyboardInterrupt, SystemExit:
         print 'GIF: convertion stopped.'
     else:
