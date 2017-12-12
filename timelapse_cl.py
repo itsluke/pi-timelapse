@@ -1,4 +1,3 @@
-# from picamera import PiCamera
 import errno
 import os
 import re
@@ -9,19 +8,53 @@ from datetime import datetime, timedelta
 from time import sleep
 import yaml
 
+# from picamera import PiCamera
 
-def dev_stub(s_time=2):
-    # dev
-    print 'dev sleep {} sec'.format(s_time)
-    sleep(s_time)
+#################################################
+#################################################
+#################################################
+
+
+def __with_wait_animation(
+        method,
+        method_args=(),
+        msg='working',
+        sec=0.5):
+    """
+    Adds a wait animation to a long running method.
+    >>> __with_wait_animation(encode, ('gif'), 'encoding', 0.5)
+    encoding............
+    """
+    animation = '.'
+    thr = threading.Thread(target=method, args=method_args)
+    thr.start()
+    sys.stdout.write(msg)
+    while thr.is_alive():
+        sys.stdout.write(animation)
+        sys.stdout.flush()
+        sleep(sec)
+
+
+def __valid_filename(string):
+    """
+    Return the given string converted to a string that can be used for a clean
+    filename. Remove leading and trailing spaces; convert other spaces to
+    underscores; and remove anything that is not an alphanumeric, dash,
+    underscore, or dot.
+    >>> __valid_filename("i hope my plants are ok.jpg")
+    'i_hope_my_plants_are_ok.jpg'
+    """
+    string = str(string).strip().replace(' ', '_')
+    return re.sub(r'(?u)[^-\w.]', '', string)
 
 
 class Timelapse(object):
+    """Creates a new timelapse to be run on the pi"""
+    LOCAL_DEV = True
 
     #################################################
     #################################################
     #################################################
-
 
     class Export(object):
         """
@@ -38,40 +71,39 @@ class Timelapse(object):
         count = None
 
         """docstring for Export"""
+
         def __init__(self, timelapse, options=None):
             super(timelapse.Export, self).__init__()
             self.timelapse = timelapse
 
-            if options != None:
+            if options is not None:
                 # set name
                 if 'name' in options:
                     self.name = options['name']
                 if 'output_dir' in options:
                     self.output = options['output_dir']
 
-
-        def __create_dir(self, dir):
-            if (self.name and self.output) != None:
-                os.path.join(sys.path[0], folder, name)
-                try:
-                    os.makedirs(dir)
-                except OSError as e:
-                    if e.errno != errno.EEXIST:
-                        raise
-
-
-        def setup_output(self, options):
+        def set_output(self, options):
             """
             set output options
-            >>> setup_output(options)
+            >>> set_output(options)
             retuns true if all options set correctly
             """
 
+        def create(self):
+            # create export
+            print 'DEV waiting'
+            sleep(1)
+            __with_wait_animation(self.run)
+
+
+        def run(self):
+            print 'no export function availible for {}'.format(self.__class__.__name__)
+
 
     #################################################
     #################################################
     #################################################
-
 
     class Gif(Export):
         """
@@ -82,17 +114,20 @@ class Timelapse(object):
 
         def __init__(self, timelapse, options=None):
             super(timelapse.Gif, self).__init__(timelapse, options)
-            if options != None:
+            if options is not None:
                 if 'flags' in options:
                     self.flags = options['flags']
                 if 'gif_encode_base64' in options:
                     self.base64 = options['gif_encode_base64']
 
+        def run(self):
+            # create export
+            print 'DEV waiting {}'.format(self.name)
+            sleep(1)
 
     #################################################
     #################################################
     #################################################
-
 
     class Video(Export):
         """
@@ -104,11 +139,14 @@ class Timelapse(object):
         def __init__(self, timelapse, options=None):
             super(timelapse.Video, self).__init__(timelapse, options)
 
+        def run(self):
+            # create export
+            print 'DEV waiting {}'.format(self.name)
+            sleep(1)
 
     #################################################
     #################################################
     #################################################
-
 
     class Email(Export):
         """
@@ -118,17 +156,16 @@ class Timelapse(object):
         export_type = None
         attrs = {}
 
-        def __init__(self, timelapse, type, options=None):
+        def __init__(self, timelapse, export_type, options=None):
             super(timelapse.Video, self).__init__(timelapse, options)
 
-            self.export_type = type
+            self.export_type = export_type
 
             if options:
                 try:
                     self.setup(options)
-                except AttributeError,e:
+                except AttributeError:
                     print 'Invalid attributes. Email not setup, please try again'
-
 
         def setup(self, options):
 
@@ -139,28 +176,46 @@ class Timelapse(object):
                     self.attrs[k] = options[k]
 
             if any(k not in self.attrs for k in req):
-               raise AttributeError(
-                "please supply an 'address', 'password' and 'to_address")
+                raise AttributeError(
+                    "please supply an 'address', 'password' and 'to_address")
 
+        def run(self):
+            # create export
+            print 'DEV waiting {}'.format(self.name)
+            sleep(1)
+
+            # any specific attributes
+
+            # wrap this function in 'loader'
 
     #################################################
     #################################################
     #################################################
 
-    name = None
-    mode = None
-    interval = None
+    name = 'series'
+    image_dir = '/home/pi/pi-timelapse/'
+    image_filename = 'image'
 
     run_first = None
     run_last = None
     run_count = None
 
-    camera = None
-    image_dir = None
-    image_count = None
-    
-    exports = None
+    __schedule = {
+        'type': None,
+        'start': None,
+        'end': None,
+        'interval': None,
+        'total_images': None,
+        'current_image': None,
+        'current_image_dir': None
+    }
 
+    __date_str = '%Y-%m-%d'
+    __time_str = '%H_%M'
+    __d_t_str = '{}_{}'.format(__date_str, __time_str)
+
+    __camera = None
+    __exports = None
 
     def __init__(self, name=None, config_path='config.yml'):
         """
@@ -173,55 +228,42 @@ class Timelapse(object):
         # load yml config
         config = yaml.safe_load(
             open(os.path.join(sys.path[0], config_path)))
-        
+
         # set name
         if name:
             self.name = name
         elif 'series_name' in config:
             self.name = config['series_name']
-        else:
-            self.name = 'series'
-        
-        # set output directory
-        if 'output_dir' in config:
-            self.image_dir = config['output_dir']
-        else:
-            self.image_dir = '/home/pi/pi-timelapse/'
 
-        # set image name
-        if 'output_image_name' in config:
-            self.image_filename = config['output_image_name']
-        else:
-            self.image_filename = 'image'
+        # setup output
+        self.set('timings', config)
 
-        if config['create_gif'] == True:
+        # setup output
+        self.set('output', config)
+
+        # setup output
+        self.set('camera', config)
+
+        # setup gif export
+        if config['create_gif']:
             if config['gif'] != {}:
                 self.setup_export('gif', config['gif'])
-            else: self.setup_export('gif')
+            else:
+                self.setup_export('gif')
 
-        if config['create_video'] == True:
+        # setup video export
+        if config['create_video']:
             if config['video'] != {}:
                 self.setup_export('video', config['video'])
-            else: self.setup_export('video')
+            else:
+                self.setup_export('video')
 
-        if config['export_email'] == True and config['email'] != {}:
+        # setup email export
+        if config['export_email'] and config['email'] != {}:
             print 'setting up email export'
             self.setup_export('email', config['email'])
 
         self.__pretty_print_info()
-
-                
-    def __valid_filename(self, string):
-        """
-        Return the given string converted to a string that can be used for a clean
-        filename. Remove leading and trailing spaces; convert other spaces to
-        underscores; and remove anything that is not an alphanumeric, dash,
-        underscore, or dot.
-        >>> __valid_filename("i hope my plants are ok.jpg")
-        'i_hope_my_plants_are_ok.jpg'
-        """
-        s = str(s).strip().replace(' ', '_')
-        return re.sub(r'(?u)[^-\w.]', '', s)
 
 
     def __pretty_print_info(self):
@@ -235,55 +277,85 @@ class Timelapse(object):
         ------------------------------------------
         """
         msg = "=============== timelapse.py ================\n\n"
-        msg += "Mode: {0} | Interval: {1}s | Image Count: {2}\n"
+        msg += "Type: {0} | Interval: {1}s | Image Count: {2}\n"
         msg += "Output Dir: {3}\n"
         msg += "Last Run: {4}\n"
-        
+
         msg = msg.format(
-            self.mode, self.interval, self.image_count,
-            self.image_dir , self.run_last
+            self.__schedule['type'],
+            self.__schedule['interval'],
+            self.__schedule['total_images'],
+            self.image_dir,
+            self.run_last
         )
 
-        for x in self.exports:
-            x_info = "\nExport --------------------------------------\n"
-            x_info += "Type: {0} | Name: {1}\n"
-            
-            x_info = x_info.format(x.__class__.__name__, x.name)
-            msg += x_info
+        for ex in self.__exports:
+            info = "\nExport --------------------------------------\n"
+            info += "Type: {0} | Name: {1}\n"
+
+            info = info.format(ex.__class__.__name__, ex.name)
+            msg += info
 
         msg = msg + "\n============================================="
 
-        print msg        
-
-
-    def __with_wait_animation(method, method_args=(), msg='working', sec=0.5):
-        """
-        Adds a wait animation to a long running method.
-        >>> __with_wait_animation(encode, ('gif'), 'encoding', 0.5)
-        encoding............
-        """
-        s = '.'
-        t = threading.Thread(target=method, args=method_args)
-        t.start()
-        sys.stdout.write( msg )
-        while t.is_alive():
-            sys.stdout.write( s )
-            sys.stdout.flush()
-            sleep(sec)
-
+        print msg
 
     def __add_export(self, export):
-        if self.exports == None:
-            self.exports = []
-        self.exports.append( export )
+        if self.__exports is None:
+            self.__exports = []
+        self.__exports.append(export)
 
+    def __create_current_dir(self):
+        if not self.image_dir:
+            self.image_dir = '/home/pi/pi-timelapse/'
+        if not self.name:
+            self.name = 'series'
 
-    def setup_camera(self, options):
+        current_dir = os.path.join(
+            self.image_dir, 
+            self.name,
+            self.__schedule['start_time'].strftime(self.__d_t_str)
+            )
+
+        try:
+            os.makedirs(current_dir)
+        except OSError as err:
+            if err.errno != errno.EEXIST:
+                raise
+
+    def __all_clear(self):
+        if self.__camera is None:
+            raise Exception("Camera is not setup. Please re-run '.set_camera'")
+
+        if self.image_dir is None:
+            raise Exception("Output is not setup. Please re-run '.set_output'")
+
+        if self.__schedule['current_image_dir'] is None:
+            # create current image dir
+            self.__create_current_dir()
+
+    def __take_image(self):
+        self.__all_clear()
+        try:
+            self.__camera.capture(
+                self.__schedule['current_image_dir'] +
+                self.image_filename + '{0:05d}.jpg'.format(self.__schedule['current_image'])
+            )
+            self.__schedule['current_image'] += 1
+        # else:
+        #     sleep(1)
+            print 'Camera capture did not complete'
+        finally:
+            self.__camera.close()
+
+    def __setup_camera(self, options=None):
         """
-        set camera options.
-        >>> setup_camera(options)
-        retuns true if all options set correctly
+        sets any custom options and returns the camera
+        >>> set_camera(options)
         """
+        if self.LOCAL_DEV:
+            return None
+
         camera = PiCamera()
 
         if 'resolution' in options:
@@ -294,7 +366,7 @@ class Timelapse(object):
 
         if 'iso' in options:
             camera.iso = options['iso']
-            
+
         if 'shutter_speed' in options:
             camera.shutter_speed = options['shutter_speed']
             # Sleep to allow the shutter speed to take effect correctly.
@@ -313,61 +385,125 @@ class Timelapse(object):
         if 'rotation' in options:
             camera.rotation = options['rotation']
 
-        self.camera = camera
+        self.__camera = camera
 
+    def __setup_timings(self, options):
+        """
+        set timing options
+        >>> set_timings(options)
+        """
+        now = datetime.now()
+        now_date_str = now.strftime(self.__date_str)
+        if 'start_time' in options:
+            start = datetime.strptime('{} {}'.format(
+                now_date_str, 
+                options['start_time']
+            ), self.__d_t_str)
+        else:
+            start = now
 
-    def setup_output(self, options):
+        self.__schedule['start_time'] = start
+
+    def __setup_output(self, options=None):
         """
         set output options
-        >>> setup_output(options)
+        >>> set_output(options)
         retuns true if all options set correctly
         """
+        if options:
+            # set output directory
+            if 'output_dir' in options:
+                self.image_dir = options['output_dir']
 
+            # set image name
+            if 'output_image_name' in options:
+                self.image_filename = options['output_image_name']
 
-    def setup_export(self, type, options=None):
+    #################################################
+    # PUBLIC
+
+    def set(self, type, options=None):
+        if type == 'camera':
+            self.__setup_camera(options)
+
+        if type == 'timings':
+            self.__setup_timings(options)
+
+        if type == 'output':
+            self.__setup_output(options)
+
+    def setup_export(self, export_type, options=None):
         """
         set export options
         >>> setup_export(options)
         retuns true if all options set correctly
         """
-        if type == 'gif':
+        if export_type == 'gif':
             # check if any default values have been overwritten
-            if options and any(k in options for k in ('gif_name', 'gif_output_dir', 'gif_flags')):
-                dev_stub()
+            if options:
+                print 'DEV waiting'
+                sleep(1)
             else:
-                # self.exports['gif'] = new Gif()
                 new_gif = self.Gif(self)
                 self.__add_export(new_gif)
 
-        elif type == 'video':
+        elif export_type == 'video':
             # check if any default values have been overwritten
-            if options and any(k in options for k in (
-                'mp4_name', 'mp4_output_dir', 'mp4_flags')):
-                dev_stub()
+            if options:
+                # ('mp4_name', 'mp4_output_dir', 'mp4_flags')
+                print 'DEV waiting'
+                sleep(1)
             else:
-                # self.exports['video'] = new Video()
                 new_video = self.Video(self)
                 self.__add_export(new_video)
 
-        elif type == 'email':
+        elif export_type == 'email':
             # check if any default values have been overwritten
-            if all(k in options for k in (
-                'address', 'password')):
-                dev_stub()
+            if ('address' and 'password') in options:
+                print 'DEV waiting'
+                sleep(1)
             else:
                 raise AttributeError(
                     'missing email configuirations. \nPlease update config.yml or supply options')
 
-
-    def start(self):
+    def __capture(self):
         """
         start timelapse
         >>> start()
         """
-            # if camera setup
-            # if timings setup
-            # if output setup
+        try:
+            self.__all_clear()
+            c_img = self.__schedule['current_image']
+            t_img = self.__schedule['total_images'] - 1
 
+            # check if images still needing to be taken
+            if c_img < t_img:
+                # cue up next image
+                # TODO:
+                # place this thread in a single queue
+                threading.Timer(self.__schedule['interval'], self.__capture).start()
+                # take the current image
+                self.__take_image()
+            else:
+                # make this a "cleanup schedule action"
+                self.__schedule['current_image'] = 0
+                # run finishing up actions
+
+        except KeyboardInterrupt as SystemExit:
+            # TODO:
+            # Need to remove thread from ""
+            print '\nTime-lapse capture cancelled.\n'
+
+    def start(self):
+        """
+        starts timelapse capture
+        """
+        # check todays dir
+        self.__create_current_dir()
+        # reset current image number
+
+        self.__schedule['current_image'] = 0
+        self.__capture()
 
     def stop(self):
         """
@@ -377,14 +513,12 @@ class Timelapse(object):
         >>> stop()
         """
 
-
     def restart(self):
         """
-        Stops timelapse gracefully, cleans up and 
+        Stops timelapse gracefully, cleans up and
         restarts timelapse.
         >>> restart()
         """
-
 
     def export(self):
         """
@@ -393,20 +527,17 @@ class Timelapse(object):
         returns file path for exported timelapse
         """
 
-
     def get_video(self):
         """
         >>> video()
         returns path to latest video.
         """
 
-
     def get_gif(self):
         """
         >>> gif()
         returns path to latest gif.
         """
-
 
     def email(self):
         """
@@ -415,8 +546,4 @@ class Timelapse(object):
         returns file path for exported timelapse
         """
 
-# /home/pi/pi-timelapse/<timelapse_name>/date_time/*{.jpg,.mp4,.gif}
-
-
-tl = Timelapse( 'plane-test' )
-
+my_timelapse = Timelapse('plane-test')

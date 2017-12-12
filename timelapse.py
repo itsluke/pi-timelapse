@@ -132,30 +132,30 @@ def config_mode():
         )
 
 
-def pretty_print():
-    print '------------', 'timelapse.py', '-------------'
-    if mode['type'] == 'Once':
-        print 'Mode: {} | Interval: {}s | Image Count: {}'.format(
-            mode['type'], config['interval'], total_images)
+# def pretty_print():
+#     print '------------', 'timelapse.py', '-------------'
+#     if mode['type'] == 'Once':
+#         print 'Mode: {} | Interval: {}s | Image Count: {}'.format(
+#             mode['type'], config['interval'], total_images)
 
-        print 'Output Dir: {}/'.format(os.path.basename(mode['dir']))
-    else:
-        print 'Mode: {} | Interval: {}s | Daily Count: {}'.format(
-                mode['type'], config['interval'], total_images)
-        print 'timelapse from: {} to: {}'.format(
-            mode['start_time'].strftime(time_string),
-            mode['end_time'].strftime(time_string)
-        )
-        print 'Output Dir: {}/{}'.format(
-            series_name, os.path.basename(mode['dir'])
-        )
+#         print 'Output Dir: {}/'.format(os.path.basename(mode['dir']))
+#     else:
+#         print 'Mode: {} | Interval: {}s | Daily Count: {}'.format(
+#                 mode['type'], config['interval'], total_images)
+#         print 'timelapse from: {} to: {}'.format(
+#             mode['start_time'].strftime(time_string),
+#             mode['end_time'].strftime(time_string)
+#         )
+#         print 'Output Dir: {}/{}'.format(
+#             series_name, os.path.basename(mode['dir'])
+#         )
 
-    print '------------------------------------------'
+#     print '------------------------------------------'
 
 
-def valid_filename(s):
-    s = str(s).strip().replace(' ', '_')
-    return re.sub(r'(?u)[^-\w.]', '', s)
+# def valid_filename(s):
+#     s = str(s).strip().replace(' ', '_')
+#     return re.sub(r'(?u)[^-\w.]', '', s)
 
 
 def capture_image():
