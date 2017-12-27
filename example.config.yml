@@ -5,34 +5,40 @@
 
 # Image resolution Set to empty object (`{ }`) to use default resolution.
 resolution:
-  width: 480
-  height: 270
+  width: 640
+  height: 480 
 
 # The interval between captures (in seconds).
-interval: 1
-
-# uncomment if you wish to use daily running times
-# start_time: '18:15:00'
-# end_time: '18:15:30'
+interval: 15
 
 # The number of images to capture.
-total_images: 10
+# total_images: 20
+
+# uncomment to use specific running times
+start_time: '01:10:00'
+end_time: '01:15:00'
+
+# uncomment to repeat (time in days )
+repeat: 1 # days
 
 # Whether to create an animated gif after capturing the time-lapse images.
-create_gif: False
+create_gif: True
 
 # Whether to create an video after capturing the time-lapse images.
 create_video: False
 
-# Whether to email time-lapse exports after creation.
-email_export: False
+# Whether to email time-lapse exports.
+export_email: True
 
 #####################
 # Location settings #
 #####################
 
 # Custom Series Name
-# series_name: 'series'
+# output_name: 'series'
+
+# Custom Series Name
+# output_image_name: 'image'
 
 # Custom Output Dir
 # output_dir: '/home/pi/pi-timelapse/'
@@ -41,37 +47,40 @@ email_export: False
 # GIF settings      #
 #####################
 
-# Custom Gif Suffix
-# gif_name: 'timelapse.gif'
-
-# Custom Output Dir
-# gif_output_dir: '/home/pi/pi-timelapse/'
-
-# Custom Gif Flags
-# gif_flags: '-crop 780x520+260+50\!'
+# Set to empty object (`{ }`) to use default gif settings.
+gif:
+  flags: '-crop 780x520+60+50\!'
+#   name: 'timelapse.gif'
+#   # Custom Output Dir
+#   output_dir: '/home/pi/pi-timelapse/'x
+#   # Custom Gif Flags
+#   flags: '-crop 780x520+260+50\!'
 
 #####################
 # MP4 settings      #
 #####################
 
-# Custom mp4 Suffix
-# mp4_name: 'timelapse.mp4'
-
-# Custom Output Dir
-# mp4_output_dir: '/home/pi/pi-timelapse/'
+# Set to empty object (`{ }`) to use default mp4 settings.
+video: {}
+#   # Custom mp4 name
+#   name: 'timelapse.mp4'
+#   # Custom Output Dir
+#   output_dir: '/home/pi/pi-timelapse/'
 
 #####################
 # Email settings    #
 #####################
 
-# Email address to send from
-# email_address: 'sending@your.email'
-
-# Password from sending address
-# email_password: 'sending_email_password'
-
-# Address to email
-# email_to_address: 'receiving@a.email'
+# ALL email 
+email:
+  # Email address to send from
+  address: 'luke@lukecreates.com'
+  # Password from sending address
+  password: 'Spr1ngl0adr'
+  # Address to email
+  to_address: 'team@groww.co'
+  # Send gif in email
+  send_gif: True
 
 #####################
 # Advanced settings #
@@ -84,11 +93,9 @@ iso: 0
 shutter_speed: 0
 
 # White balance. Set to empty object (`{ }`) to use auto white balance.
-white_balance: { }
-  # red_gain: 1.3
-  # blue_gain: 1.75
+white_balance:
+  red_gain: 1.5
+  blue_gain: 1.5
 
 # Rotate the images taken by the camera. Possible value are 0, 90, 180 or 270
-rotation: 0
-
-
+rotation: 180
