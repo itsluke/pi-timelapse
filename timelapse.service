@@ -4,9 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python /home/pi/pi-timelapse/timelapse.py
+ExecStart=/usr/bin/python /home/pi/pi-timelapse/daemon_runner.py
 RemainAfterExit=true
-ExecStop=/usr/bin/pkill -f timelapse.py
 StandardOutput=journal
 StandardError=journal
 User=pi

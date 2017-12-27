@@ -6,16 +6,29 @@ import threading
 # import Queue
 import base64
 import smtplib
-from string import Template
-from email.MIMEMultipart import MIMEMultipart
-from email.MIMEText import MIMEText
-from email.MIMEBase import MIMEBase
-from email import encoders as Encoders
-from datetime import datetime, timedelta
-from time import sleep
 import yaml
 
+from subprocess import PIPE, Popen
+from string import Template
+
+from email.mime import multipart as MIMEMultipart
+from email.mime import base as MIMEBase
+from email.mime import text as MIMEText
+from email import encoders as Encoders
+
+from datetime import datetime, timedelta
+from time import sleep
+
 from picamera import PiCamera
+
+#################################################
+#################################################
+#################################################
+
+def get_cpu_temperature():
+    process = Popen(['vcgencmd', 'measure_temp'], stdout=PIPE)
+    output, _error = process.communicate()
+    return float(output[output.index('=') + 1:output.rindex("'")])
 
 #################################################
 #################################################
@@ -155,7 +168,7 @@ class Timelapse(object):
 
         def create(self):
             """
-            run export's .run function with 
+            run export's .run function with
             animated wait timer.
             """
             with_wait_animation(self.run)
@@ -340,9 +353,13 @@ class Timelapse(object):
                 html_bp_PREHEADER='Your daily groww light email',
                 html_bp_MAIN_HEADER='Enjoy your {0} report'.format(Timelapse.info['name']),
                 html_bp_MAIN_SUB=now.strftime(Timelapse.date_str),
-                html_bp_MAIN_BODY='Here\'s your daily update on your fish.',
-                html_bp_second_HEADER='Info on your setup',
-                html_bp_second_SUB='Temp: 20 | Light Hours: 16 | Humity: 0.31',
+                html_bp_MAIN_BODY='Here\'s your daily update on the fisheys.',
+                html_bp_second_HEADER='Info on the setup',
+                html_bp_second_SUB='Temp: {} | Light Hours: {} | Humity: {}'.format(
+                    getCPUtemperature(),
+                    '?',
+                    '?'
+                ),
                 html_bp_second_BODY='Sed nisl augue, laoreet ut dictum in, cursus in risus. Nam egestas dignissim erat ac iaculis.'
             )
 
@@ -711,21 +728,27 @@ class Timelapse(object):
                     None,
                     self.__schedule['interval'])
 
+            c_img_name = '{0}/{1}_{2:05d}.jpg'.format(
+                self.__schedule['current_image_dir'],
+                self.info['filename'],
+                self.__schedule['current_image']
+            )
+
             # take the current image
             camera = PiCamera()
             setup_camera(camera, self.__camera_options)
-
-            camera.capture(
-                '{0}/{1}_{2:05d}.jpg'.format(
-                    self.__schedule['current_image_dir'],
-                    self.info['filename'],
-                    self.__schedule['current_image']
-                )
-            )
-
+            camera.capture(c_img_name)
             camera.close()
 
-            print 'Taking image {}/{}'.format(c_img + 1, t_img)
+            print 'Taken image {}/{}'.format(c_img + 1, t_img)
+
+            try:
+                os.symlink(c_img_name, '{}/latest.jpg'.format(
+                    self.__schedule['current_image_dir']))
+            except Exception as err:
+                raise err
+            else:
+                print 'unable to create symlink'
 
             # check if images still needing to be taken
             if c_img < t_img:
@@ -883,6 +906,3 @@ class Timelapse(object):
         self.stop(False)
         print 'Time-lapse {} restarting'.format(self.name)
         self.start()
-
-MY_TIMELAPSE = Timelapse('growwLight', 'config.yml')
-MY_TIMELAPSE.start()
